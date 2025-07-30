@@ -5,32 +5,35 @@ import traceback
 
 app = Flask(__name__)
 CORS(app)
-
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
-        'cookiefile': 'cookies.txt',  # لو عندك ملف كوكيز
+        'cookiefile': 'cookies.txt',
         'noplaylist': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'format': 'bestvideo+bestaudio/best',
+        'format': 'best',
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
             formats = info.get('formats', [])
+
+            # ✅ فقط الصيغ اللي فيها صوت وفيديو معًا (muxed)
             video_formats = [
                 {
                     'format_id': f.get('format_id'),
                     'ext': f.get('ext'),
-                    'quality': f.get('format_note'),
+                    'quality': f.get('format_note') or f.get('resolution'),
                     'url': f.get('url'),
                     'filesize': f.get('filesize'),
                     'resolution': f"{f.get('width')}x{f.get('height')}" if f.get('width') else None,
                 }
-                for f in formats if f.get('vcodec') != 'none'
+                for f in formats
+                if f.get('vcodec') != 'none' and f.get('acodec') != 'none'  # ✨ صوت وصورة
             ]
+
             return {
                 'title': info.get('title'),
                 'thumbnail': info.get('thumbnail'),
@@ -42,6 +45,7 @@ def get_video_info(url):
         except Exception as e:
             print(traceback.format_exc())
             return {'error': str(e)}
+
 
 @app.route('/get_video_url', methods=['POST'])
 def get_video_url():
